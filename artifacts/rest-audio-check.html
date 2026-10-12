@@ -1,0 +1,14 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>休息三声提示验收</title></head><body><button id="start">验证三声倒计时</button><pre id="result">等待开始</pre><script type="module">
+import { scheduleRestBeeps } from '/src/prep-beep.js';
+const button = document.querySelector('#start'), output = document.querySelector('#result');
+button.onclick = async () => {
+ const context = new AudioContext(); await context.resume();
+ const heard = [], began = context.currentTime;
+ output.textContent = '已提前安排 3、2、1 三声';
+ scheduleRestBeeps(context, 6000, null, second => {
+   heard.push({ second, elapsed: Number((context.currentTime - began).toFixed(2)) });
+   output.textContent = JSON.stringify(heard);
+   if (heard.length === 3) output.textContent += '\n通过：三声均已播放';
+ });
+};
+</script></body></html>

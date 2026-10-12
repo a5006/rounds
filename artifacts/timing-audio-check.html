@@ -1,0 +1,18 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>音频时序验收</title></head><body><button id="start">验证准备零秒与训练中文倒数</button><pre id="result">等待开始</pre><script type="module">
+import { schedulePrepFinish, playPrepBeep } from '/src/prep-beep.js';
+import { scheduleCountdownSpeech } from '/src/countdown-speech.js';
+const result = document.querySelector('#result');
+document.querySelector('#start').onclick = async () => {
+ const context = new AudioContext(); await context.resume(); const start = context.currentTime, events = [];
+ const log = text => { events.push(text); result.textContent = events.join('\n'); };
+ log('准备普通滴声：3、2、1；零秒高音计划时刻：3.00s');
+ [3,2,1].forEach((second,i) => setTimeout(() => playPrepBeep(context, second, 0), i*1000));
+ schedulePrepFinish(context, 3000, () => log('零秒高音播放完成：'+(context.currentTime-start).toFixed(2)+'s'));
+ scheduleCountdownSpeech(Date.now()+9000, null, second => {
+  const utterance = new SpeechSynthesisUtterance({3:'三',2:'二',1:'一'}[second]); utterance.lang='zh-CN';utterance.rate=1.25;
+  utterance.onstart = () => log('中文语音开始：'+second+' / '+(context.currentTime-start).toFixed(2)+'s');
+  speechSynthesis.cancel();speechSynthesis.speak(utterance);
+  log('中文语音已触发：'+second);
+ });
+};
+</script></body></html>
