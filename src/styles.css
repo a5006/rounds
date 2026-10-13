@@ -33,6 +33,65 @@
 .screen-transition main > div > section:nth-child(3) { animation-delay: 80ms; }
 @keyframes card-reveal { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 .timer-ring { transition: stroke-dashoffset 60ms linear; will-change: stroke-dashoffset; }
+/* Ambient light lives outside the digits; transform/opacity keep it lightweight. */
+.ambient-dial {
+  --dial-light: 255, 99, 78;
+  --dial-accent: 255, 184, 106;
+  --dial-orbit: 7s;
+  --dial-breath: 2.8s;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 50%;
+  opacity: 1;
+  transition: opacity 700ms ease;
+  animation: ambient-arrive 700ms ease-out both;
+}
+.ambient-dial--rest { --dial-light: 95, 165, 255; --dial-accent: 166, 223, 255; --dial-orbit: 18s; --dial-breath: 4s; }
+.ambient-dial--stopwatch { --dial-light: 253, 187, 67; --dial-accent: 255, 222, 172; --dial-orbit: 6s; --dial-breath: 5s; }
+.ambient-dial__haze {
+  position: absolute;
+  inset: -22%;
+  border-radius: inherit;
+  background: radial-gradient(circle, transparent 35%, rgba(var(--dial-light), .13) 49%, rgba(var(--dial-light), .045) 60%, transparent 71%);
+}
+.ambient-dial__breath {
+  position: absolute;
+  inset: -8%;
+  border-radius: inherit;
+  background: radial-gradient(circle, transparent 49%, rgba(var(--dial-light), .24) 57%, transparent 68%);
+  animation: ambient-breathe var(--dial-breath) ease-in-out infinite;
+}
+.ambient-dial__orbit { position: absolute; inset: -3%; border-radius: inherit; animation: ambient-orbit var(--dial-orbit) linear infinite; }
+.ambient-dial__trail {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 3px;
+  background: conic-gradient(from 20deg, transparent 0deg 205deg, rgba(var(--dial-light), .03) 225deg, rgba(var(--dial-light), .45) 300deg, rgba(var(--dial-accent), .95) 338deg, transparent 344deg);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+.ambient-dial__rim { position: absolute; inset: -3%; border-radius: inherit; border: 1px solid rgba(var(--dial-light), .12); box-shadow: 0 0 18px rgba(var(--dial-light), .16), inset 0 0 12px rgba(var(--dial-light), .08); }
+.ambient-dial__cue { position: absolute; inset: -3%; border-radius: inherit; border: 2px solid rgba(var(--dial-accent), .9); box-shadow: 0 0 22px rgba(var(--dial-light), .55); animation: ambient-cue 650ms ease-out both; }
+.ambient-dial__entry { position: absolute; inset: -3%; border-radius: inherit; border: 2px solid rgba(var(--dial-accent), .55); box-shadow: 0 0 24px rgba(var(--dial-light), .3); animation: ambient-cue 850ms ease-out both; }
+.ambient-dial.is-paused { opacity: .32; }
+.ambient-dial.is-paused .ambient-dial__orbit,
+.ambient-dial.is-paused .ambient-dial__breath { animation-play-state: paused; }
+.stopwatch-progress { color: #fdbb43; filter: drop-shadow(0 0 8px #fdbb4388); transition: opacity 500ms ease; }
+.stopwatch-fraction { color: #fdbb43; }
+.stopwatch-dial { width: min(20rem, calc(100vw - 48px)); height: min(20rem, calc(100vw - 48px)); }
+@keyframes ambient-orbit { to { transform: rotate(360deg); } }
+@keyframes ambient-breathe { 0%, 100% { opacity: .4; transform: scale(.97); } 50% { opacity: .95; transform: scale(1.035); } }
+@keyframes ambient-cue { from { opacity: .85; transform: scale(.98); } to { opacity: 0; transform: scale(1.045); } }
+@keyframes ambient-arrive { from { opacity: .2; transform: scale(.96); } to { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .ambient-dial, .ambient-dial * { animation: none !important; transition: none !important; }
+  .ambient-dial__cue, .ambient-dial__entry { display: none; }
+  .ambient-dial__breath { opacity: .5; }
+}
 .animated-time { display: inline-flex; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .digit-slot { display: inline-flex; overflow: hidden; }
 .digit-enter { display: inline-block; animation: digit-in 240ms cubic-bezier(.22,1,.36,1); }

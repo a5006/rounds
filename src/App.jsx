@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ParameterPicker, { PARAMETERS } from './ParameterPicker';
+import AmbientDial from './AmbientDial';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { SessionProvider, useWorkout, useNavigate, useStopwatch, formatDuration, exportLaps, shareReport, AnimatedTime } from './runtime';
 
@@ -201,11 +202,6 @@ import { SessionProvider, useWorkout, useNavigate, useStopwatch, formatDuration,
                     {formatDuration((workoutConfig.workSec * workoutConfig.rounds + workoutConfig.restSec * (workoutConfig.rounds - (workoutConfig.noRestLast ? 1 : 0))) * 1000)}
                   </span>
                 </div>
-              </div>
-
-              <div className="flex items-center justify-between text-outline font-caption text-caption px-1">
-                <span>* 不包含准备预备时间 ({workoutConfig.prepSec}s)</span>
-                <span className="flex items-center gap-1 text-primary"><span className="material-symbols-outlined text-[13px]">volume_up</span> 触击开始 · 启用拳馆声效</span>
               </div>
 
               <button 
@@ -544,6 +540,7 @@ import { SessionProvider, useWorkout, useNavigate, useStopwatch, formatDuration,
           {/* Central Countdown Dial */}
           <div className="relative z-10 flex flex-col items-center justify-center my-space-xs">
             <div className="relative w-72 h-72 sm:w-80 sm:h-80 flex items-center justify-center">
+              <AmbientDial mode="work" running={session.running} remainingMs={session.remainingMs} />
               <svg className="absolute inset-0 w-full h-full -rotate-90 transform" viewBox="0 0 280 280">
                 <defs>
                   <filter height="140%" id="crimsonGlow" width="140%" x="-20%" y="-20%">
@@ -680,6 +677,7 @@ import { SessionProvider, useWorkout, useNavigate, useStopwatch, formatDuration,
           {/* Ring Display */}
           <div className="flex flex-col items-center justify-center relative my-auto py-space-sm">
             <div className="relative w-72 h-72 flex items-center justify-center">
+              <AmbientDial mode={session.phase === 'rest' ? 'rest' : 'work'} running={false} />
               <div className="absolute inset-4 rounded-full bg-surface-container-low/80 backdrop-blur-lg"></div>
               <svg className="w-full h-full -rotate-90 relative z-10" viewBox="0 0 260 260">
                 <circle className="text-surface-container-highest" cx="130" cy="130" fill="none" r="110" stroke="currentColor" strokeWidth="10"></circle>
@@ -868,6 +866,7 @@ import { SessionProvider, useWorkout, useNavigate, useStopwatch, formatDuration,
 
             {/* Circular Ring */}
             <div className="relative w-72 h-72 flex items-center justify-center my-space-xs">
+              <AmbientDial mode="rest" running={session.running} remainingMs={session.remainingMs} />
               <div className="absolute inset-4 rounded-full bg-secondary-container/10 blur-xl pointer-events-none"></div>
               <svg aria-hidden="true" className="w-full h-full -rotate-90 transform" viewBox="0 0 280 280">
                 <circle className="text-surface-container-high" cx="140" cy="140" fill="transparent" r="120" stroke="currentColor" strokeWidth="12"></circle>
@@ -917,12 +916,6 @@ import { SessionProvider, useWorkout, useNavigate, useStopwatch, formatDuration,
                 <span className="font-label-caps text-caption bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded font-bold">
                   高强度重击
                 </span>
-              </div>
-              <div className="flex items-start gap-2 pt-1">
-                <span className="material-symbols-outlined text-tertiary-fixed-dim text-[18px] shrink-0 mt-0.5">tips_and_updates</span>
-                <p className="font-body-md text-body-md text-on-surface-variant leading-relaxed">
-                  调整深长腹式呼吸，小口补充电解质水。放松肩胛肌群，为下轮连招做准备。
-                </p>
               </div>
               <div className="mt-space-xs pt-space-xs bg-surface-container-low px-space-md py-2.5 rounded-lg flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1581,12 +1574,13 @@ import { SessionProvider, useWorkout, useNavigate, useStopwatch, formatDuration,
 
             {/* Central Precision Chronometer Dial */}
             <section className="relative flex flex-col items-center justify-center pt-space-xs pb-space-sm">
-              <div className="absolute w-72 h-72 rounded-full bg-primary-container/5 blur-3xl pointer-events-none"></div>
-              <div className="relative w-80 h-80 flex items-center justify-center">
+              <div className="absolute w-72 h-72 rounded-full bg-tertiary/5 blur-3xl pointer-events-none"></div>
+              <div className="relative w-80 h-80 flex items-center justify-center stopwatch-dial">
+                <AmbientDial mode="stopwatch" running={isRunning} />
                 <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 320 320">
                   <circle className="text-surface-container-highest/60" cx="160" cy="160" fill="none" r="142" stroke="currentColor" strokeDasharray="2 6" strokeWidth="4"></circle>
                   <circle 
-                    className={isRunning ? "text-primary-container" : "text-secondary-container"} 
+                    className="stopwatch-progress"
                     cx="160" cy="160" fill="none" 
                     r="142" 
                     stroke="currentColor" 
@@ -1594,7 +1588,7 @@ import { SessionProvider, useWorkout, useNavigate, useStopwatch, formatDuration,
                     strokeDashoffset={(elapsedTime / 100) % 892} 
                     strokeLinecap="round" 
                     strokeWidth="5" 
-                    style={{ filter: isRunning ? "drop-shadow(0 0 10px rgba(255, 82, 93, 0.75))" : "drop-shadow(0 0 10px rgba(41, 147, 247, 0.75))" }}
+                    style={{ opacity: isRunning ? 1 : 0.45 }}
                   ></circle>
                   <line className="text-primary-container" stroke="currentColor" strokeWidth="3" x1="160" x2="160" y1="10" y2="24"></line>
                   <line className="text-secondary" stroke="currentColor" strokeWidth="2" x1="310" x2="296" y1="160" y2="160"></line>
@@ -1615,7 +1609,7 @@ import { SessionProvider, useWorkout, useNavigate, useStopwatch, formatDuration,
                     <span className="font-display-hero-mobile text-display-hero-mobile font-bold tracking-tight text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.8)] font-mono">
                       {timeParts.main}
                     </span>
-                    <span className="font-timer-lg text-timer-lg font-bold text-primary-container pl-1 font-mono">
+                    <span className="font-timer-lg text-timer-lg font-bold stopwatch-fraction pl-1 font-mono">
                       {timeParts.millis}
                     </span>
                   </div>
@@ -1814,8 +1808,6 @@ function SettingsScreen() {
     <section className="rounded-xl bg-surface-container px-4 divide-y divide-surface-container-highest">{Object.entries(labels).map(([key, [title, caption]]) => <button key={key} role="switch" aria-checked={settings[key]} onClick={() => setSettings(prev => ({ ...prev, [key]: !prev[key] }))} className="flex items-center justify-between w-full gap-4 py-5 text-left"><div><div className="font-bold">{title}</div><div className="text-caption text-on-surface-variant mt-1">{caption}</div></div><span className={`toggle-track ${settings[key] ? 'is-on' : ''}`}><span /></span></button>)}</section>
     <button onClick={() => unlockAudio()} className="mt-6 w-full rounded-full p-4 bg-primary-container text-on-primary-container font-bold">{audioReady ? '试听训练铃声' : '启用并试听铃声'}</button>
     <button onClick={previewWoodClapper} className="mt-3 w-full rounded-full p-4 bg-surface-container-high text-tertiary font-bold">试听敲板声 · 最后 10 秒预警</button>
-    <p className="text-caption text-outline mt-3 leading-5">敲板实录：<a className="underline" href="https://freesound.org/people/ashboy34/sounds/544885/" target="_blank" rel="noreferrer">boardclapdry · ashboy34</a> · <a className="underline" href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noreferrer">CC BY 3.0</a>（剪辑为三连击）</p>
-    <p className="text-caption text-on-surface-variant mt-5 leading-6">iPhone 首次播放声音需触击按钮。添加到主屏幕可全屏使用。锁屏后浏览器可能暂停声音，重新打开时会按实际时间校准计时。</p>
     <BottomNavBar currentPath="/settings" />
   </div>;
 }

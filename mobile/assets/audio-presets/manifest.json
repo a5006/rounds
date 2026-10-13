@@ -1,0 +1,114 @@
+[
+  {
+    "key": "sound2-pcm8-11025-p15-w180-s60-r12-l1-v1-e1",
+    "preset": "preset-pro",
+    "bytes": 866304,
+    "duration": 2837.5,
+    "expected": 2837.5
+  },
+  {
+    "key": "sound2-pcm8-11025-p15-w180-s60-r12-l1-v1-e0",
+    "preset": "preset-pro",
+    "bytes": 808925,
+    "duration": 2837.5,
+    "expected": 2837.5
+  },
+  {
+    "key": "sound2-pcm8-11025-p15-w180-s60-r12-l1-v0-e1",
+    "preset": "preset-pro",
+    "bytes": 677265,
+    "duration": 2837.5,
+    "expected": 2837.5
+  },
+  {
+    "key": "sound2-pcm8-11025-p15-w180-s60-r12-l1-v0-e0",
+    "preset": "preset-pro",
+    "bytes": 620750,
+    "duration": 2837.5,
+    "expected": 2837.5
+  },
+  {
+    "key": "sound2-pcm8-11025-p10-w180-s60-r8-l1-v1-e1",
+    "preset": "preset-sparring",
+    "bytes": 565272,
+    "duration": 1872.5,
+    "expected": 1872.5
+  },
+  {
+    "key": "sound2-pcm8-11025-p10-w180-s60-r8-l1-v1-e0",
+    "preset": "preset-sparring",
+    "bytes": 535636,
+    "duration": 1872.5,
+    "expected": 1872.5
+  },
+  {
+    "key": "sound2-pcm8-11025-p10-w180-s60-r8-l1-v0-e1",
+    "preset": "preset-sparring",
+    "bytes": 438491,
+    "duration": 1872.5,
+    "expected": 1872.5
+  },
+  {
+    "key": "sound2-pcm8-11025-p10-w180-s60-r8-l1-v0-e0",
+    "preset": "preset-sparring",
+    "bytes": 408778,
+    "duration": 1872.5,
+    "expected": 1872.5
+  },
+  {
+    "key": "sound2-pcm8-11025-p10-w90-s30-r10-l1-v1-e1",
+    "preset": "preset-hiit",
+    "bytes": 505759,
+    "duration": 1182.5,
+    "expected": 1182.5
+  },
+  {
+    "key": "sound2-pcm8-11025-p10-w90-s30-r10-l1-v1-e0",
+    "preset": "preset-hiit",
+    "bytes": 470381,
+    "duration": 1182.5,
+    "expected": 1182.5
+  },
+  {
+    "key": "sound2-pcm8-11025-p10-w90-s30-r10-l1-v0-e1",
+    "preset": "preset-hiit",
+    "bytes": 345428,
+    "duration": 1182.5,
+    "expected": 1182.5
+  },
+  {
+    "key": "sound2-pcm8-11025-p10-w90-s30-r10-l1-v0-e0",
+    "preset": "preset-hiit",
+    "bytes": 310048,
+    "duration": 1182.5,
+    "expected": 1182.5
+  },
+  {
+    "key": "sound2-pcm8-11025-p10-w180-s60-r3-l1-v1-e1",
+    "preset": "preset-amateur",
+    "bytes": 208646,
+    "duration": 672.5,
+    "expected": 672.5
+  },
+  {
+    "key": "sound2-pcm8-11025-p10-w180-s60-r3-l1-v1-e0",
+    "preset": "preset-amateur",
+    "bytes": 197358,
+    "duration": 672.5,
+    "expected": 672.5
+  },
+  {
+    "key": "sound2-pcm8-11025-p10-w180-s60-r3-l1-v0-e1",
+    "preset": "preset-amateur",
+    "bytes": 160435,
+    "duration": 672.5,
+    "expected": 672.5
+  },
+  {
+    "key": "sound2-pcm8-11025-p10-w180-s60-r3-l1-v0-e0",
+    "preset": "preset-amateur",
+    "bytes": 149178,
+    "duration": 672.5,
+    "expected": 672.5
+  }
+]

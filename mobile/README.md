@@ -1,0 +1,106 @@
+# ROUND PRO · Expo / React Native
+
+原生 Android / iOS 项目，保留当前网页版。使用 Expo SDK 57、React Native 0.86 和 React 19；训练状态机直接复用仓库根目录的 `src/session.js`。
+
+## 安装与运行
+
+从仓库根目录执行：
+
+```powershell
+cd mobile
+npm ci
+npm start
+```
+
+已安装开发客户端的真机与电脑连接同一局域网，扫描终端二维码。首次需要先构建并安装 development build。也可使用 SDK 匹配的 Expo Go 检查基本界面，但后台服务和锁屏验收请使用 development / preview 安装包。
+
+```powershell
+npm run web -- --port 8081
+npm run typecheck
+npm test
+npm run export:all
+npx expo-doctor
+```
+
+Web 预览使用同一份原生组件经 React Native Web 渲染，不用于证明安卓/iOS 的锁屏、音频服务、触觉或系统分享行为。
+
+## 构建安装包
+
+所有构建命令从 `mobile/` 执行。首次需要 Expo 账号和网络连接：
+
+```powershell
+npx eas-cli login
+npx eas-cli build:configure
+npm run build:android
+npm run build:ios
+```
+
+- `preview`：Android 生成可直接安装的 APK；iOS 为签名的 Ad Hoc 构建，需 Apple Developer 账号并注册测试设备。可用 `npx eas-cli device:create` 注册 iPhone 后构建。
+- `development`：`npx eas-cli build --profile development --platform android` 或 `--platform ios`，生成开发客户端。
+- `ios-simulator`：`npx eas-cli build --profile ios-simulator --platform ios`，供 macOS 的 iOS 模拟器使用。
+- `production`：`npm run build:production`，生成 Android AAB 和 iOS 商店发布构建。商店提交是独立步骤。
+
+包名 / Bundle ID：`com.a5006.roundpro`，可在 `app.json` 更改。EAS 项目 ID 与签名在登录配置时生成；仓库不包含账号、证书或伪造项目 ID。Windows 可使用 EAS 云构建两端；本机 Android 编译需 JDK / Android SDK，iOS 本机编译需 macOS / Xcode。
+
+## 已迁移的功能
+
+- 首页与训练方案库：四套只读预设，可复制为自定义方案；新增、编辑、复制、首页展示、筛选、选择与删除方案。房屋图标控制是否进入首页快捷方案，预设可隐藏但不可删除；当前方案通过图标与文字单选，和首页展示互相独立。本机保存，旧的单套配置迁移为“我的训练方案”。时间以 5 秒为步长，训练至少 5 秒，准备/休息可为 0，最多 30 回合、单阶段 10:55。
+- 每套方案保存名称、类别、高亮色、阶段参数、震动与音量。方案颜色用于卡片，计时阶段色固定。进入新训练前保存方案快照，修改或删除方案不改变正在进行的训练；删除保留已有战报。
+- 所有启动入口统一检查未完成训练，用户确认后先生成旧训练战报再开始新方案。离开训练页时顶部显示实时训练条，点击回到训练页。
+- 准备、运动、休息、暂停、恢复、延时、跳阶段、重置阶段与战报，支持最后回合免休息。
+- 红色运动环、蓝色休息呼吸光、琥珀色秒表光尾；支持减少动态效果。
+- 秒表、分圈、最佳/平均圈速和原生 CSV 分享；状态保存在 AsyncStorage。
+- 本地中文报数、阶段语音、三连铃与真实三下木板录音；全局静音、声音试听、触觉与保持常亮。
+- 系统返回键、安全区域、iOS/Android 分享与独立音效来源页面。
+
+路由使用 Expo Router，入口为 `expo-router/entry`，页面位于 `src/app/`；`App.tsx` 管理字体、全局状态和页面外壳。
+
+## 后台计时和声音
+
+`planFromSession` 生成剩余训练的精确音频时间轴：
+
+- 准备/休息最后 3、2、1 秒为普通滴声；进入运动的 0 秒为更高、更长的滴声，无开场铃。
+- 运动最后 3、2、1 秒中文报数；运动转休息或完成时播放三连铃。
+- 每回合剩余 10 秒时播放三下木板预警（可关闭）。
+
+自定义方案保存时把全部声音事件混合为本地 WAV，保存完成后开练直接复用。原生文件存于应用私有 documents/round-pro-audio-v2，Web 存于 IndexedDB。缓存身份只包含阶段时长、回合数、末回合免休息、语音与敲板设置；名称、颜色、音量不触发合成。声音设置改变后后台准备新版本，旧方案首次迁移时也会自动准备。删除方案会清理不再共用的文件，正在播放的文件延迟到播放器释放后清理。
+
+四套固定预设各有四种“语音 × 敲板”组合，共 16 个静态 AAC/M4A 文件随安装包提供，合计 7,268,654 字节，首次开练也不现场合成。修改预设配置/声音生成逻辑时运行 `npm run generate:preset-audio`（需 FFmpeg/FFprobe），同步生成模块清单和校验 manifest。测试会检查当前预设参数、时长及文件大小，防止静态资源过期。
+
+自定义 WAV 使用 11025 Hz、8 位单声道 PCM，小块写入以控制内存，时长约每分钟 0.66 MB。暂停恢复保留已有播放器；延时/跳阶段或重建已开始的训练仍生成临时剩余时间轴。播放器仍需加载文件，超过 700 ms 才显示可取消的准备弹层，短暂准备显示按钮状态。静音与音量作用于播放器，不改变时间轴。开发日志分别记录资源读取、合成存储、缓存读取和播放器加载耗时。
+
+Android 配置媒体播放前台服务与锁屏控制，iOS 配置 `UIBackgroundModes: audio`。JavaScript 不负责后台逐秒发声。训练状态根据播放器时间同步；暂停保留音频位置，延时/跳阶段/设置变化重新生成剩余时间轴。音乐/电话等音频中断或拔出耳机会受系统音频规则影响，恢复前需检查状态。
+
+正常锁屏/切到后台允许继续播放。用户强制退出或系统终止应用后，播放器不能继续运行；重新启动恢复为上次保存的暂停训练。秒表用持久化起始时间校准经过时间。关闭后台提示时，进入后台会暂停训练。
+
+请使用两端真机验收：锁屏连续运行超过 3 分钟、跨回合、静音、蓝牙断开、电话中断、通知栏/锁屏暂停恢复、延时重排、退出恢复和无网络训练。模拟器、JS 资源导出和 Web 预览均不能替代这些验收。
+
+## 资源
+
+字体与声音均随应用打包，不依赖训练期间的网络。中文语音已包含 1–30 回合及报数。`scripts/generate-voices.ps1` 使用 Windows 中文 SAPI 音色重新生成；`scripts/generate-assets.mjs` 生成电子声、图标并同步声音清单，需仓库根目录安装 `sharp`。
+
+木板声音的来源、作者、源录音与 CC BY 3.0 链接见根目录 `assets/audio/CREDITS.md`；设置页已隐藏“音效来源”按钮。
+
+## 动态氛围灯
+
+训练用红色、休息用冰蓝色、准备与秒表用琥珀色漂移光雾，外环有两道旋转光尾。Reanimated 帧时钟独立于计时数字更新，连续累积旋转相位；暂停或进入后台停止动画，恢复时保持原相位。系统开启“减少动态”时显示静态光晕。中央暗区保持数字清晰；无需新增图片资源。
+
+卡片采用深灰纯色与细边框，卡片圆角 12、数据块圆角 8、按钮圆角 10；当前方案通过主题色描边和勾选识别。主按钮使用纯色与少量光晕，卡片和次要按钮无渐变或光晕，圆形图标操作保留。计时光尾、背景雾效、奖章及滚轮遮罩仍保留各自渐变。秒表复位会在 500ms 内把数字与圆环分别退回零；数据和分圈立即清空，复位后停止，开始操作可以取消退回动画。
+
+## 战报图片分享
+
+点击“分享训练战报”生成 1080px 宽 PNG，包含品牌、奖章、最终数据和全部回合柱形图，不含按钮和导航。Android/iOS 使用 react-native-view-shot 和 expo-sharing 打开系统分享面板，可选择已安装且支持图片分享的应用；无需微信专用 SDK 或相册权限。网页版使用 html2canvas 生成图片、显示预览并提供下载。临时原生图片保留至应用关闭，供 Android 接收应用异步读取。
+
+新增 view-shot 原生模块需要新的 APK/开发构建，旧 APK 不会获得此功能。秒表保留分圈成绩展示，已移除 CSV 导出。
+
+## 架构
+
+- `App.tsx`：入口、原生安全区域和屏幕管理。
+- `src/SessionProvider.tsx`：训练/秒表状态、持久化、后台恢复和原生播放器协调。
+- `src/core/mobile-core.mjs`：参数校验、阶段音频计划和秒表校准。
+- `src/core/pcm.mjs`：PCM WAV 解析及流式音频混音。
+- `src/audio.ts`：资源解码、缓存时间轴及原生/预览播放器。
+- `src/ui.tsx`：通用组件。
+- `src/Dial.tsx`、`src/MistBackground.tsx`、`src/useMotionClock.ts`：计时环、漂移光雾与独立动画时钟。
+- `src/screens/`：原生页面。
+- `eas.json`：开发、APK/iOS 内测及生产构建配置。

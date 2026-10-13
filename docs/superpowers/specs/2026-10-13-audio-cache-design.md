@@ -1,0 +1,9 @@
+# Persisted training audio and bundled presets
+
+User approved save-time local audio preparation, bundled preset audio variants, deletion cleanup and strict 1–30 round selection. Also requested boxing-glove homepage shortcut icons. No APK build.
+
+Cache identity uses normalized preparation/work/rest durations, rounds, last-rest flag, speech/wood-warning flags and sound/render revision. Exclude name, colour, volume, vibration and background mode. Four fixed templates each ship four pre-generated AAC/M4A variants; custom configuration matching a preset also reuses its asset. Build script validates durations. Custom complete timelines use persistent private document storage on native and IndexedDB Blob storage on web. Partial/interrupted/extended session timelines remain temporary, preserving existing cue planning/audio clock semantics.
+
+Save prepares file before success; restore/settings changes warm custom files asynchronously without setting audio mode or touching playback. Cache jobs deduplicate and file construction serializes to limit memory. Desired-key set and playback leases protect shared/active files; delete/edit/settings cleanup removes unused versions after leases release. Startup sweeps orphan/partial files inside dedicated audio directory. Cache errors do not corrupt plans; start falls back to on-demand preparation if needed. Files remain local, no external audio service.
+
+Persistent files are written to unique partial paths and atomically published on completion. Cancelled player preparation releases leases; cleanup does not delete active/bundled assets. Short playback initialization shows local busy button feedback; global preparation modal delayed 700ms. Instrument resource load, cache lookup, render and player loading in development. Native offline/system playback needs device verification.
