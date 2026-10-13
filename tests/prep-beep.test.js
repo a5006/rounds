@@ -1,16 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import * as cues from '../src/prep-beep.js';
 import { shouldPlayPrepBeep, playPrepBeep, scheduleRestBeeps, schedulePrepFinish } from '../src/prep-beep.js';
 const session = { phase: 'prep', running: true, remainingMs: 10000 };
 const ready = { muted: false, audioReady: true, lastSecond: null };
-test('preparation beeps exactly once per displayed countdown second', () => {
+test('only rest and completion use three bells; entering work never rings a bell', () => {
+  for (const phase of ['prep', 'work', 'idle']) assert.equal(cues.phaseBellCount?.(phase), 0);
+  for (const phase of ['rest', 'done']) assert.equal(cues.phaseBellCount?.(phase), 3);
+});
+test('preparation only beeps in the last three displayed seconds', () => {
   let lastSecond = null, count = 0;
   for (let remainingMs = 10000; remainingMs > 0; remainingMs -= 50) {
     if (shouldPlayPrepBeep({ ...session, remainingMs }, { ...ready, lastSecond })) {
       count++; lastSecond = Math.ceil(remainingMs / 1000);
     }
   }
-  assert.equal(count, 10);
+  assert.equal(count, 3);
 });
 test('pause, mute, locked audio and non-preparation phases suppress the beep', () => {
   assert.equal(shouldPlayPrepBeep({ ...session, running: false }, ready), false);
@@ -21,7 +26,8 @@ test('pause, mute, locked audio and non-preparation phases suppress the beep', (
 });
 test('resuming the same second does not double beep; background catch-up does not replay missed ticks', () => {
   assert.equal(shouldPlayPrepBeep({ ...session, remainingMs: 9500 }, { ...ready, lastSecond: 10 }), false);
-  assert.equal(shouldPlayPrepBeep({ ...session, remainingMs: 4200 }, { ...ready, lastSecond: 10 }), true);
+  assert.equal(shouldPlayPrepBeep({ ...session, remainingMs: 4200 }, { ...ready, lastSecond: 10 }), false);
+  assert.equal(shouldPlayPrepBeep({ ...session, remainingMs: 2200 }, { ...ready, lastSecond: 10 }), true);
   assert.equal(shouldPlayPrepBeep({ ...session, remainingMs: 4150 }, { ...ready, lastSecond: 5 }), false);
 });
 test('the watch beep is a short 2400Hz square wave and cleans up its audio nodes', () => {
@@ -36,16 +42,17 @@ test('the watch beep is a short 2400Hz square wave and cleans up its audio nodes
   assert(Math.abs(events[1][1] - 2.1) < 1e-9);
   oscillator.onended(); assert.equal(events.length, 4);
 });
-test('only the last countdown second plays the higher, slightly longer finish beep', () => {
+test('only zero plays the higher, slightly longer finish beep', () => {
   const tones = [];
-  for (const secondsLeft of [3, 2, 1]) {
+  for (const secondsLeft of [3, 2, 1, 0]) {
     const oscillator = { frequency: {}, connect() {}, start() {}, stop(time) { tones.push({ frequency: this.frequency.value, length: time }); }, disconnect() {} };
     const gain = { gain: { setValueAtTime() {}, linearRampToValueAtTime() {} }, connect() {}, disconnect() {} };
     playPrepBeep({ state: 'running', currentTime: 0, createOscillator: () => oscillator, createGain: () => gain }, secondsLeft);
   }
   assert.equal(tones[0].frequency, tones[1].frequency);
-  assert(tones[2].frequency > tones[1].frequency);
-  assert(tones[2].length > tones[1].length && tones[2].length < 0.3);
+  assert.equal(tones[2].frequency, tones[1].frequency);
+  assert(tones[3].frequency > tones[2].frequency);
+  assert(tones[3].length > tones[2].length && tones[3].length < 0.3);
 });
 function audioClock() {
   const nodes = [];
@@ -59,11 +66,11 @@ function audioClock() {
   };
   return { context, nodes };
 }
-test('all three rest beeps are scheduled before the UI enters the last three seconds', () => {
+test('rest schedules three ordinary beeps and a high finish beep at zero', () => {
   const { context, nodes } = audioClock();
   scheduleRestBeeps(context, 6000, null);
-  assert.deepEqual(nodes.map(node => node.startTime), [13, 14, 15]);
-  assert.deepEqual(nodes.map(node => node.frequency.value), [2400, 2400, 3200]);
+  assert.deepEqual(nodes.map(node => node.startTime), [13, 14, 15, 16]);
+  assert.deepEqual(nodes.map(node => node.frequency.value), [2400, 2400, 2400, 3200]);
 });
 test('pause cancels queued beeps, and resume preserves an already heard first beep', () => {
   const { context, nodes } = audioClock(); const heard = [];
@@ -73,14 +80,21 @@ test('pause cancels queued beeps, and resume preserves an already heard first be
   assert(nodes.every(node => node.stopTime === 13.2));
   nodes.forEach(node => node.onended()); assert.deepEqual(heard, [3]);
   const next = audioClock(); scheduleRestBeeps(next.context, 2800, 3);
-  assert.deepEqual(next.nodes.map(node => node.frequency.value), [2400, 3200]);
-  assert.deepEqual(next.nodes.map(node => node.startTime), [10.8, 11.8]);
+  assert.deepEqual(next.nodes.map(node => node.frequency.value), [2400, 2400, 3200]);
+  assert.deepEqual(next.nodes.map(node => node.startTime), [10.8, 11.8, 12.8]);
 });
 test('extending rest cancels the previous schedule and plans a complete new three-beep sequence', () => {
   const first = audioClock(); const cancel = scheduleRestBeeps(first.context, 4000, null);
   cancel(); assert(first.nodes.every(node => node.stopTime === 10));
   const extended = audioClock(); scheduleRestBeeps(extended.context, 19000, null);
-  assert.deepEqual(extended.nodes.map(node => node.startTime), [26, 27, 28]);
+  assert.deepEqual(extended.nodes.map(node => node.startTime), [26, 27, 28, 29]);
+});
+test('rest transition allows the zero-second finish beep to ring out', () => {
+  const { context, nodes } = audioClock(); const heard = [];
+  const cancel = scheduleRestBeeps(context, 4000, null, second => heard.push(second));
+  context.currentTime = 14.02; cancel();
+  assert(nodes[3].stopTime > 14.1);
+  assert.deepEqual(heard, [3, 2, 1, 0]);
 });
 test('preparation keeps 3, 2, 1 ordinary, and schedules the high tone at zero', () => {
   const { context, nodes } = audioClock();

@@ -3,7 +3,7 @@ import { useNavigate as useRouterNavigate, useLocation } from 'react-router-dom'
 import { emptySession, startSession, advanceSession, tickSession, pauseSession, resumeSession, extendSession, getReport } from './session';
 import { shouldScheduleRoundWarning, scheduleWoodClapper } from './wood-clapper';
 import woodClapperUrl from '../assets/audio/wood-clapper.wav?url';
-import { playPrepBeep, shouldPlayPrepBeep, scheduleRestBeeps, schedulePrepFinish } from './prep-beep';
+import { scheduleRestBeeps, phaseBellCount } from './prep-beep';
 import { scheduleCountdownSpeech } from './countdown-speech';
 
 const Context = createContext(null);
@@ -113,15 +113,10 @@ export function SessionProvider({ initialConfig, children }) {
   }, [session.phase]);
 
   const lastCue = useRef('');
-  const lastPrepBeep = useRef(null);
-  const lastRestBeep = useRef(null);
+  const lastCountdownBeep = useRef(null);
   const lastWorkNumber = useRef(null);
   const spokenRound = useRef(null);
-  const prepFinished = useRef(false);
-  const previousPhase = useRef(session.phase);
-  const warningSecond = Math.ceil(session.remainingMs / 1000);
   const phaseDeadline = session.running ? session.lastTick + session.remainingMs : 0;
-  const restDeadline = session.phase === 'rest' && session.running ? session.lastTick + session.remainingMs : 0;
   useEffect(() => {
     if (!session.running && session.phase !== 'done') return;
     const cue = `${session.phase}:${session.round}`;
@@ -129,9 +124,7 @@ export function SessionProvider({ initialConfig, children }) {
     if (!audioReady) return;
     lastCue.current = cue;
     if (muted) return;
-    const enteredFromPrep = previousPhase.current === 'prep' && session.phase === 'work';
-    previousPhase.current = session.phase;
-    if (session.phase !== 'prep' && !(enteredFromPrep && prepFinished.current)) bell(session.phase === 'rest' || session.phase === 'done' ? 3 : 1);
+    bell(phaseBellCount(session.phase));
     if (settings.vibration) navigator.vibrate?.(session.phase === 'work' ? [100, 50, 100] : 70);
     if (settings.voiceAudio && 'speechSynthesis' in window) {
       speechSynthesis.cancel();
@@ -141,22 +134,12 @@ export function SessionProvider({ initialConfig, children }) {
     }
   }, [session.phase, session.round, session.running, muted, settings, audioReady]);
   useEffect(() => {
-    if (session.phase !== 'prep') { lastPrepBeep.current = null; return; }
-    if (shouldPlayPrepBeep(session, { muted, audioReady, lastSecond: lastPrepBeep.current }) && playPrepBeep(audio, warningSecond, 0)) {
-      lastPrepBeep.current = warningSecond;
-    }
-  }, [warningSecond, session.phase, session.running, muted, audioReady]);
-  useEffect(() => {
-    if (session.phase !== 'prep' || !session.running || muted || !audioReady || prepFinished.current) return;
-    return schedulePrepFinish(audio, Math.max(0, phaseDeadline - Date.now()), () => { prepFinished.current = true; });
-  }, [phaseDeadline, session.phase, session.running, muted, audioReady]);
-  useEffect(() => {
-    if (session.phase !== 'rest') { lastRestBeep.current = null; return; }
+    if (!['prep', 'rest'].includes(session.phase)) { lastCountdownBeep.current = null; return; }
     if (!session.running || muted || !audioReady) return;
-    const remainingMs = Math.max(0, restDeadline - Date.now());
-    if (remainingMs > 3000) lastRestBeep.current = null;
-    return scheduleRestBeeps(audio, remainingMs, lastRestBeep.current, second => { lastRestBeep.current = second; });
-  }, [restDeadline, session.phase, session.round, session.running, muted, audioReady]);
+    const remainingMs = Math.max(0, phaseDeadline - Date.now());
+    if (remainingMs > 3000) lastCountdownBeep.current = null;
+    return scheduleRestBeeps(audio, remainingMs, lastCountdownBeep.current, second => { lastCountdownBeep.current = second; });
+  }, [phaseDeadline, session.phase, session.round, session.running, muted, audioReady]);
   useEffect(() => {
     if (!shouldScheduleRoundWarning(session, { enabled: settings.earlyWarning, muted, audioReady })) return;
     const round = session.round;
@@ -201,10 +184,8 @@ export function SessionProvider({ initialConfig, children }) {
       if (customConfig) setConfig(c);
       prepareAudio().then(setAudioReady);
       lastCue.current = '';
-      lastPrepBeep.current = null;
-      lastRestBeep.current = null;
+      lastCountdownBeep.current = null;
       lastWorkNumber.current = null;
-      prepFinished.current = false;
       path = phasePaths[next.phase];
     } else if (path === '/paused') next = pauseSession(next, Date.now());
     else if (path === '/combat' || path === '/rest') {
@@ -225,10 +206,8 @@ export function SessionProvider({ initialConfig, children }) {
   const resetPhase = () => {
     const current = tickSession(sessionRef.current, Date.now());
     const next = { ...current, remainingMs: current.durationMs, warningPlayedRound: current.phase === 'work' ? 0 : current.warningPlayedRound };
-    if (current.phase === 'prep') lastPrepBeep.current = null;
-    if (current.phase === 'prep') prepFinished.current = false;
+    if (current.phase === 'prep' || current.phase === 'rest') lastCountdownBeep.current = null;
     if (current.phase === 'work') lastWorkNumber.current = null;
-    if (current.phase === 'rest') lastRestBeep.current = null;
     sessionRef.current = next; setSession(next);
   };
 
