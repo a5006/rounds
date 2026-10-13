@@ -1,5 +1,5 @@
 import React, { memo, useEffect, useRef, useState, type ComponentProps } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { barDelay, countValue, reportColumns } from './core/report.mjs';
@@ -42,10 +42,11 @@ export function ReportMetric({ title, icon, value, time, target, caption, color,
   title: string; icon: Icon; value: number; time?: boolean; target?: number; caption: string; color: string; progress: number;
 }) {
   const displayed = countValue(value, progress);
+  const { width } = useWindowDimensions();
   const final = time ? formatDuration(value) : `${value}/${target}`;
   return <View style={r.metric} accessible accessibilityLabel={`${title} ${final}，${caption}`}>
     <View style={s.between}><Text style={r.metricTitle}>{title}</Text><Ionicons name={icon} size={22} color={color} /></View>
-    <Text testID={`report-value-${time ? title : 'rounds'}`} adjustsFontSizeToFit numberOfLines={1} minimumFontScale={.55} style={[r.value, { color }]}>{time ? formatDuration(displayed) : displayed}{target !== undefined && <Text style={r.target}> / {target}</Text>}</Text>
+    <Text testID={`report-value-${time ? title : 'rounds'}`} adjustsFontSizeToFit numberOfLines={1} minimumFontScale={.55} style={[r.value, { color, fontSize: width < 360 ? 27 : 38 }]}>{time ? formatDuration(displayed) : displayed}{target !== undefined && <Text style={r.target}> / {target}</Text>}</Text>
     <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color }} /><Text style={r.caption}>{caption}</Text></View>
   </View>;
 }
@@ -76,7 +77,7 @@ export const RoundChart = memo(function RoundChart({ records, active, ready }: {
 });
 
 const r = StyleSheet.create({
-  metric: { backgroundColor: t.card, borderRadius: t.radius.card, borderWidth: 1, borderColor: t.border, padding: 16, flexBasis: '46%', flexGrow: 1, minWidth: 0, gap: 12 },
+  metric: { backgroundColor: t.card, borderRadius: t.radius.card, borderWidth: 1, borderColor: t.cardBorder, boxShadow: '0 4px 12px #00000026', padding: 16, flexBasis: '46%', flexGrow: 1, minWidth: 0, gap: 12 },
   metricTitle: { color: t.soft, fontSize: 12, flex: 1 }, value: { fontFamily: t.mono, fontVariant: ['tabular-nums'], fontSize: 38, lineHeight: 52, letterSpacing: -1.5 }, target: { fontSize: 18, color: t.soft, letterSpacing: 0 }, caption: { color: t.soft, fontSize: 10 },
   chart: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', paddingTop: 12, paddingBottom: 4 }, column: { flex: 1, minWidth: 0, maxWidth: 50, gap: 7 }, durationLabels: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 12 }, barTime: { fontFamily: t.mono, color: t.soft, fontSize: 9, textAlign: 'center' }, barTrack: { height: 104, justifyContent: 'flex-end', overflow: 'hidden', borderBottomWidth: 1, borderColor: '#ffffff22' }, bar: { backgroundColor: t.red, borderTopLeftRadius: 5, borderTopRightRadius: 5, width: '100%' }, zero: { height: 2, backgroundColor: t.muted }, barLabel: { fontFamily: t.mono, color: t.soft, fontSize: 10, textAlign: 'center' },
 });

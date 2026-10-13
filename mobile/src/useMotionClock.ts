@@ -3,7 +3,7 @@ import { AccessibilityInfo, AppState, Platform } from 'react-native';
 import { useFrameCallback, useSharedValue } from 'react-native-reanimated';
 import { advancePhase, motionProfile } from './core/motion.mjs';
 
-export type MotionMode = 'work' | 'rest' | 'prep' | 'stopwatch';
+export type MotionMode = 'work' | 'rest' | 'prep' | 'stopwatch' | 'countdown';
 export function useMotionPreferences(running: boolean) {
   const [ready, setReady] = useState(Platform.OS === 'web');
   const [reduced, setReduced] = useState(() => Platform.OS === 'web' && typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : true);

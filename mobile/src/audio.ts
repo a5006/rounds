@@ -126,9 +126,13 @@ export async function prepareTimeline(plan: AudioPhase[], backgroundAudio: boole
 }
 
 let previewPlayer: AudioPlayer | undefined;
-export async function previewAudio(name: 'bells' | 'clapper', backgroundAudio = true, volume = 1) {
-  await setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: backgroundAudio, interruptionMode: 'doNotMix' });
-  previewPlayer?.remove();
+let previewGeneration = 0;
+export function stopPreviewAudio() { previewGeneration++; previewPlayer?.remove(); previewPlayer = undefined; }
+export async function previewAudio(name: 'bells' | 'clapper', backgroundAudio = true, volume = 1, configureMode = true) {
+  stopPreviewAudio();
+  const token = previewGeneration;
+  if (configureMode) await setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: backgroundAudio, interruptionMode: 'doNotMix' });
+  if (token !== previewGeneration) return;
   previewPlayer = createAudioPlayer(audioAssets[name]);
   previewPlayer.volume = Math.max(0, Math.min(1, volume));
   previewPlayer.play();

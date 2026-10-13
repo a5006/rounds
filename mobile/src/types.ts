@@ -12,4 +12,4 @@ export type Cue = { atMs: number; kind: string; clip: string };
 export type AudioPhase = { phase: string; round: number; durationMs: number; offsetMs: number; cues: Cue[] };
 export type Lap = { id: number; ms: number; totalMs: number };
 export type Stopwatch = { elapsedMs: number; running: boolean; startedAt: number; lastLapMs: number; laps: Lap[] };
-export type Screen = 'home' | 'training' | 'stopwatch' | 'editor' | 'plans' | 'settings' | 'report' | 'credits';
+export type Screen = 'home' | 'training' | 'stopwatch' | 'countdown' | 'editor' | 'plans' | 'settings' | 'report' | 'credits';

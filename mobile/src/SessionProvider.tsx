@@ -6,8 +6,9 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Haptics from 'expo-haptics';
 import { emptySession, startSession, tickSession, resumeSession, advanceSession, extendSession, getReport } from '../../src/session';
 import { DEFAULT_CONFIG, DEFAULT_SETTINGS, normalizeConfig, planFromSession, stopwatchElapsed } from './core/mobile-core.mjs';
-import { prepareTimeline, prepareWorkoutAudio, retainWorkoutAudio } from './audio';
+import { prepareTimeline, prepareWorkoutAudio, retainWorkoutAudio, previewAudio, stopPreviewAudio } from './audio';
 import { audioKey } from './core/audio-cache.mjs';
+import { abandonPreparationOnLeave } from './core/training-banner.mjs';
 import { restorePlans, saveCustomPlan, copyPlan, removeCustomPlan, togglePlanHome, snapshotPlan, makeStartRequest } from './core/plans.mjs';
 import type { Config, Session, Settings, Stopwatch, Report, Screen, TrainingPlan } from './types';
 
@@ -34,7 +35,8 @@ const Context = createContext<ContextValue | null>(null);
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter(), pathname = usePathname();
   const screen = (pathname === '/' ? 'home' : pathname.split('/')[1]) as Screen;
-  const navigate = useCallback((next: Screen) => router.replace(next === 'home' ? '/' : `/${next}`), [router]);
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
   const [ready, setReady] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
   const [config, setConfig] = useState<Config>(DEFAULT_CONFIG), [settings, setSettingsState] = useState<Settings>({ ...DEFAULT_SETTINGS, backgroundAudio: true });
   const [muted, setMuted] = useState(false);
@@ -54,6 +56,19 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const commitStopwatch = (next: Stopwatch) => { stopwatchRef.current = next; setStopwatch(next); setStopwatchMs(stopwatchElapsed(next, Date.now())); };
   const snapshot = () => JSON.stringify({ ...stateRef.current, session: sessionRef.current, stopwatch: stopwatchRef.current, plans: plansRef.current, selectedPlanId: selectedPlanRef.current, sessionPlan: sessionPlanRef.current });
   const persist = () => AsyncStorage.setItem(STORAGE_KEY, snapshot()).catch(() => setError('本地保存失败，请检查设备存储空间。'));
+  const persistRef = useRef(persist);
+  persistRef.current = persist;
+  const navigate = useCallback((next: Screen) => {
+    if (abandonPreparationOnLeave(screenRef.current, next, sessionRef.current)) {
+      // Cancel both live playback and pending preparation without creating a report.
+      generation.current++; setBusy(false);
+      engine.current?.dispose(); engine.current = null;
+      commitSession(emptySession() as Session);
+      sessionPlanRef.current = null; setSessionPlan(null); setPendingStart(null);
+      void persistRef.current();
+    }
+    router.replace(next === 'home' ? '/' : `/${next}`);
+  }, [router, commitSession]);
 
   useEffect(() => {
     let live = true;
@@ -134,11 +149,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(timer);
   }, []);
 
-  async function play(next: Session, includeStart = false, cachedConfig?: Config) {
+  async function play(next: Session, includeStart = false, cachedConfig?: Config, preserveRunning = false) {
     const token = ++generation.current;
+    stopPreviewAudio();
     engine.current?.dispose(); engine.current = null;
     setBusy(true); setError(null);
-    commitSession({ ...next, running: false });
+    // Keep the same controls and atmosphere while replacing a running timeline.
+    commitSession({ ...next, running: preserveRunning && next.running });
     try {
       const playback = await prepareTimeline(planFromSession(next, stateRef.current.settings, includeStart), stateRef.current.settings.backgroundAudio, () => generation.current !== token, cachedConfig ? { config: cachedConfig, settings: stateRef.current.settings } : undefined);
       if (generation.current !== token) { playback.dispose(); return; }
@@ -146,9 +163,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       playback.player.muted = stateRef.current.muted;
       playback.player.volume = sessionPlanRef.current?.volume ?? 1;
       engine.current = { ...playback, base };
-      commitSession(base); playback.player.play(); navigate('training');
+      commitSession(base); playback.player.play(); if (screen !== 'training') navigate('training');
     } catch (cause) {
-      if (generation.current === token) setError(cause instanceof Error ? cause.message : '无法准备训练音频，请重试。');
+      if (generation.current === token) { commitSession({ ...sessionRef.current, running: false }); setError(cause instanceof Error ? cause.message : '无法准备训练音频，请重试。'); }
     } finally { if (generation.current === token) setBusy(false); }
   }
 
@@ -174,7 +191,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   async function confirmStart() {
     if (!pendingStart) return;
     const request = pendingStart; setPendingStart(null);
-    finish(); await executeStart(request);
+    finishCurrent(false); await executeStart(request);
   }
   function pause() {
     // AppState listeners outlive renders: always invalidate pending preparation.
@@ -191,17 +208,20 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   async function extend(ms: number) {
     sync(); const current = sessionRef.current;
     const next = extendSession({ ...current, running: false }, ms, Date.now()) as Session;
-    if (current.running) await play(next); else { engine.current?.dispose(); engine.current = null; commitSession(next); }
+    if (current.running) await play({ ...next, running: true }, false, undefined, true); else { engine.current?.dispose(); engine.current = null; commitSession(next); }
   }
   async function resetPhase() {
     const current = sessionRef.current, next = { ...current, remainingMs: current.durationMs, warningPlayedRound: current.phase === 'work' ? 0 : current.warningPlayedRound };
     engine.current?.dispose(); engine.current = null; commitSession({ ...next, running: false });
   }
-  function finish() {
+  function finishCurrent(ring: boolean) {
     sync(); generation.current++; setBusy(false); engine.current?.dispose(); engine.current = null;
+    const current = sessionRef.current;
+    if (ring && current.config && !['idle', 'done'].includes(current.phase) && !stateRef.current.muted) void previewAudio('bells', stateRef.current.settings.backgroundAudio, sessionPlanRef.current?.volume ?? 1).catch(() => setError('结束铃声播放失败，请检查设备音量。'));
     const next = { ...sessionRef.current, phase: 'done' as const, running: false }; commitSession(next); setReport(getReport(next) as Report); navigate('report');
   }
-  function toggleMute() { const next = !stateRef.current.muted; stateRef.current.muted = next; setMuted(next); if (engine.current) engine.current.player.muted = next; }
+  function finish() { finishCurrent(true); }
+  function toggleMute() { const next = !stateRef.current.muted; stateRef.current.muted = next; setMuted(next); if (next) stopPreviewAudio(); if (engine.current) engine.current.player.muted = next; }
   function setSettings(next: Settings) { pause(); engine.current?.dispose(); engine.current = null; stateRef.current.settings = next; setSettingsState(next); }
   function toggleStopwatch() {
     const current = stopwatchRef.current, now = Date.now();

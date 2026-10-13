@@ -4,6 +4,19 @@ import * as p from '../src/core/plans.mjs';
 
 const config = { workSec: 20, restSec: 15, prepSec: 0, rounds: 3, noRestLast: true };
 const draft = { name: ' 我的拳击 ', category: '拳击实战', color: '#ff525d', config, vibration: false, volume: .4 };
+test('retired pro preset migrates to agility without reviving a custom entry or losing copies', () => {
+  const retired = { ...draft, id: 'preset-pro', name: '12 回合职业对抗', template: true, showOnHome: true };
+  const copy = { ...retired, id: 'custom-pro-copy', name: '职业对抗副本', template: false };
+  const restored = p.restorePlans([retired, copy]);
+  assert.equal(restored.some(plan => plan.id === retired.id), false);
+  assert.equal(restored.find(plan => plan.id === copy.id).name, copy.name);
+  const agility = restored.find(plan => plan.id === 'preset-agility');
+  assert.equal(agility.category, '敏捷训练');
+  assert.equal(agility.color, '#fdbb43');
+  assert.equal(agility.showOnHome, true);
+  assert.equal(restored.find(plan => plan.id === 'preset-hiit').color, '#a2c9ff');
+  assert.equal(p.normalizePlan(agility, 'agility-copy').category, '敏捷训练');
+});
 test('legacy single config migrates once and home visibility restores explicit template flags', () => {
   const first = p.restorePlans(null, config);
   assert.equal(first.filter(x => !x.template).length, 1);

@@ -8,6 +8,7 @@ import { useMotionClock, useMotionPreferences, type MotionMode } from './useMoti
 import { theme as t } from './theme';
 import { stopwatchRing } from './core/reset.mjs';
 import { useCountdownTransition } from './useCountdownTransition';
+import { formatCountdown } from './core/countdown.mjs';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const circumference = Math.PI * 2 * 122;
@@ -54,16 +55,23 @@ function CountdownCue({ seconds, mode, running }: { seconds: number; mode: Motio
   return <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, style]}><Svg width="100%" height="100%" viewBox="0 0 300 300"><Circle cx={150} cy={150} r={137} fill="none" stroke={motionProfile(mode).accent} strokeWidth={3} /></Svg></Animated.View>;
 }
 
-export function Dial({ mode, remainingMs, durationMs, elapsedMs, running, caption, fraction = false, resetFrom, transitionKey }: { mode: MotionMode; remainingMs?: number; durationMs?: number; elapsedMs?: number; running: boolean; caption: string; fraction?: boolean; resetFrom?: number; transitionKey?: string }) {
+export function Dial({ mode, remainingMs, durationMs, elapsedMs, running, caption, topContent, fraction = false, resetFrom, transitionKey, statusLabel = '已暂停' }: { mode: MotionMode; remainingMs?: number; durationMs?: number; elapsedMs?: number; running: boolean; caption: React.ReactNode; topContent?: React.ReactNode; fraction?: boolean; resetFrom?: number; transitionKey?: string; statusLabel?: string }) {
   const { width } = useWindowDimensions(), size = Math.min(320, width - 64);
   const { color } = motionProfile(mode);
   const countdown = useCountdownTransition(remainingMs || 0, durationMs || 0, transitionKey || mode, running, mode !== 'stopwatch');
   const seconds = remainingMs == null ? -1 : Math.ceil(remainingMs / 1000);
   const progress = mode === 'stopwatch' ? (resetFrom !== undefined ? 0 : stopwatchRing(elapsedMs || 0)) : Math.max(0, Math.min(1, (remainingMs || 0) / Math.max(1, durationMs || 1)));
   const time = remainingMs == null ? elapsedMs || 0 : Math.ceil(countdown.displayMs / 1000) * 1000;
+  if (mode === 'countdown') return <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <Decoration mode={mode} running={running} />
+    <Progress progress={progress} mode={mode} running={running} animatedValue={countdown.ring} />
+    <CountdownCue seconds={seconds} mode={mode} running={running} />
+    <Text testID="dial-time" accessibilityLabel={formatCountdown(time)} style={{ color: '#fff', fontFamily: t.mono, fontSize: size * .15, letterSpacing: -1, lineHeight: 58 }}>{formatCountdown(time)}</Text>
+    <View style={{ marginTop: 10, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 99, borderWidth: 1, borderColor: '#282a2f', backgroundColor: '#1a1b21' }}><Text style={{ color: '#ff4655', fontFamily: t.mono, fontSize: 12 }}>{caption || `剩余 ${Math.ceil(progress * 100)}%`}</Text></View>
+  </View>;
   return <View style={{ width: size, height: size, marginVertical: 22, alignSelf: 'center', alignItems: 'center', justifyContent: 'center' }}>
     <Decoration mode={mode} running={running} /><Progress progress={progress} mode={mode} running={running} resetFrom={resetFrom} animatedValue={mode === 'stopwatch' ? undefined : countdown.ring} /><CountdownCue seconds={seconds} mode={mode} running={running} />
-    <View style={{ alignItems: 'center' }}><Text style={[styles.caption, { color }]}>{caption}</Text><View style={{ flexDirection: 'row', alignItems: 'baseline' }}><Text testID="dial-time" accessibilityLabel={formatDuration(time)} style={[styles.time, { fontSize: fraction ? size * .18 : size * .21 }]}>{formatDuration(time)}</Text>{fraction && <Text style={[styles.fraction, { color, fontSize: size * .095 }]}>.{String(Math.floor(time % 1000 / 10)).padStart(2, '0')}</Text>}</View>{!running && <Text style={styles.caption}>已暂停</Text>}</View>
+    <View style={{ alignItems: 'center' }}>{topContent}{mode !== 'stopwatch' && <Text style={[styles.caption, { color }]}>{caption}</Text>}<View style={{ flexDirection: 'row', alignItems: 'baseline' }}><Text testID="dial-time" accessibilityLabel={formatDuration(time)} style={[styles.time, { fontSize: fraction ? size * .18 : size * .21 }]}>{formatDuration(time)}</Text>{fraction && <Text style={[styles.fraction, { color, fontSize: size * .095 }]}>.{String(Math.floor(time % 1000 / 10)).padStart(2, '0')}</Text>}</View>{mode === 'stopwatch' ? <Text style={styles.caption}>{caption}</Text> : !running && !!statusLabel && <Text style={styles.caption}>{statusLabel}</Text>}</View>
   </View>;
 }
 const styles = StyleSheet.create({ caption: { color: t.muted, fontSize: 11, letterSpacing: .7, fontWeight: '600', lineHeight: 19 }, time: { color: t.text, fontFamily: t.mono, fontVariant: ['tabular-nums'], letterSpacing: -3, lineHeight: 85 }, fraction: { fontFamily: t.mono, letterSpacing: -1 } });
