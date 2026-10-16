@@ -1,11 +1,12 @@
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import { countdownNotificationSound } from './core/countdown.mjs';
 
 const identifier = 'round-pro-countdown';
 const sound = 'bells.wav';
 const channelId = (muted: boolean, vibration: boolean) => `countdown-v1-${muted ? 'silent' : 'sound'}-${vibration ? 'vibrate' : 'still'}`;
 Notifications.setNotificationHandler({
-  handleNotification: async notification => ({ shouldShowBanner: true, shouldShowList: true, shouldSetBadge: false, shouldPlaySound: Boolean(notification.request.content.sound) }),
+  handleNotification: async notification => ({ shouldShowBanner: true, shouldShowList: true, shouldSetBadge: false, shouldPlaySound: countdownNotificationSound(Boolean(notification.request.content.data?.countdown), notification.request.content.sound, AppState.currentState === 'active') }),
 });
 async function channel(muted: boolean, vibration: boolean) {
   const id = channelId(muted, vibration);

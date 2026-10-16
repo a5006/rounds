@@ -62,7 +62,7 @@ function ReportContent({ report }: { report: Report }) {
 
 export function ReportScreen() {
   const app = useRound();
-  return <><Header title="训练战报" /><ScrollView contentContainerStyle={s.content}>{app.report ? <ReportContent key={app.report.date} report={app.report} /> : <><View style={r.hero}><Ionicons name="trophy-outline" size={65} color={t.amber} /><Text style={s.title}>开始记录你的训练</Text><Label>完成训练后在这里查看战报</Label></View><Button title="开始新的训练" icon="play" onPress={() => void app.start()} /></>}</ScrollView></>;
+  return <><Header title="训练战报" back={false} /><ScrollView contentContainerStyle={s.content}>{app.report ? <ReportContent key={app.report.date} report={app.report} /> : <><View style={r.hero}><Ionicons name="trophy-outline" size={65} color={t.amber} /><Text style={s.title}>开始记录你的训练</Text><Label>完成训练后在这里查看战报</Label></View><Button title="开始新的训练" icon="play" onPress={() => void app.start()} /></>}</ScrollView></>;
 }
 
 const r = StyleSheet.create({

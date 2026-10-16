@@ -26,15 +26,18 @@ export function pauseCountdown(timer, now) {
 export function stopCountdown(timer) {
   return { ...timer, status: 'ready', remainingMs: timer.durationMs, deadline: 0 };
 }
-export function shouldRingCountdown(previous, next, muted) {
-  return !muted && previous.status === 'running' && next.status === 'complete';
+export function shouldRingCountdown(previous, next, muted, { foreground = true, scheduled = false, catchUp = false } = {}) {
+  return foreground && !(catchUp && scheduled) && !muted && previous.status === 'running' && next.status === 'complete';
+}
+export function countdownNotificationSound(isCountdown, sound, foreground) {
+  return Boolean(sound) && !(isCountdown && foreground);
 }
 export function resumeCountdown(timer, now) {
   return timer.status === 'paused' && timer.remainingMs > 0 ? { ...timer, status: 'running', deadline: now + timer.remainingMs } : timer;
 }
 export function recentCountdownTimes(values) {
   const times = Array.isArray(values) ? values : DEFAULT_RECENT_TIMES;
-  return [...new Set(times.map(normalizeSeconds).filter(Boolean))].slice(0, 6);
+  return [...new Set(times.map(normalizeSeconds).filter(Boolean))].slice(0, 4);
 }
 export function restoreCountdown(saved, now) {
   const fallback = emptyCountdown();
@@ -48,4 +51,8 @@ export function restoreCountdown(saved, now) {
 export function formatCountdown(ms) {
   const seconds = Math.ceil(Math.max(0, ms) / 1000);
   return [Math.floor(seconds / 3600), Math.floor(seconds % 3600 / 60), seconds % 60].map(value => String(value).padStart(2, '0')).join(':');
+}
+export function formatCountdownParts(ms) {
+  const value = Math.floor(Math.max(0, ms));
+  return { time: formatCountdown(Math.floor(value / 1000) * 1000), fraction: String(value % 1000).padStart(3, '0') };
 }

@@ -17,7 +17,7 @@ export function PlansScreen() {
   const matches = (plan: TrainingPlan, key: Filter) => key === 'all' || (key === 'custom' && !plan.template) || (key === 'template' && plan.template) || (key === 'home' && plan.showOnHome);
   const rows = app.plans.filter(plan => matches(plan, filter)).sort((a, b) => Number(b.id === app.selectedPlan?.id) - Number(a.id === app.selectedPlan?.id));
   const start = (plan: TrainingPlan) => { void app.startPlan(plan); };
-  return <><Header title="训练方案库" /><ScrollView contentContainerStyle={s.content}>
+  return <><Header title="训练方案库" back={false} /><ScrollView contentContainerStyle={s.content}>
     <View style={s.between}><Label color={t.redLight}>TRAINING PLANS</Label><Label>共 {app.plans.length} 套方案</Label></View>
     <Button title="新增自定义方案" secondary color={t.text} icon="add-circle-outline" onPress={() => app.editPlan()} />
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>{filters.map(item => <Pressable key={item.key} accessibilityRole="button" accessibilityState={{ selected: filter === item.key }} onPress={() => setFilter(item.key)} style={[styles.chip, { backgroundColor: filter === item.key ? '#ffb3b218' : t.raised }]}><Text style={{ color: filter === item.key ? t.redLight : t.muted, fontSize: 12 }}>{item.title} {app.plans.filter(plan => matches(plan, item.key)).length}</Text></Pressable>)}</ScrollView>

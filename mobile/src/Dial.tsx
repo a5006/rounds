@@ -8,24 +8,25 @@ import { useMotionClock, useMotionPreferences, type MotionMode } from './useMoti
 import { theme as t } from './theme';
 import { stopwatchRing } from './core/reset.mjs';
 import { useCountdownTransition } from './useCountdownTransition';
-import { formatCountdown } from './core/countdown.mjs';
+import { formatCountdownParts } from './core/countdown.mjs';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const circumference = Math.PI * 2 * 122;
 
-const Decoration = memo(function Decoration({ mode, running }: { mode: MotionMode; running: boolean }) {
+const Decoration = memo(function Decoration({ mode, running, glow }: { mode: MotionMode; running: boolean; glow: SharedValue<number> }) {
   const { color, accent } = motionProfile(mode);
   const { turn, breath, reduced } = useMotionClock(mode, running);
-  const orbitStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${(turn.value % 1) * 360}deg` }] }));
-  const haloStyle = useAnimatedStyle(() => ({ opacity: .4 + Math.sin(breath.value * Math.PI * 2) * .16, transform: [{ scale: 1.015 + Math.sin(breath.value * Math.PI * 2) * .035 }] }));
+  const orbitStyle = useAnimatedStyle(() => ({ opacity: glow.value * (reduced ? .4 : 1), transform: [{ rotate: `${(turn.value % 1) * 360}deg` }] }));
+  const haloStyle = useAnimatedStyle(() => ({ opacity: glow.value * (.4 + Math.sin(breath.value * Math.PI * 2) * .16), transform: [{ scale: 1.015 + Math.sin(breath.value * Math.PI * 2) * .035 }] }));
   return <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-    <Animated.View style={[StyleSheet.absoluteFill, haloStyle]}><Svg width="100%" height="100%" viewBox="0 0 300 300">{[132, 139, 145].map((r, index) => <Circle key={r} cx={150} cy={150} r={r} fill="none" stroke={color} strokeWidth={14 + index * 3} opacity={.17 - index * .035} />)}</Svg></Animated.View>
+    <Animated.View testID="dial-halo" style={[StyleSheet.absoluteFill, haloStyle]}><Svg width="100%" height="100%" viewBox="0 0 300 300">{[132, 139, 145].map((r, index) => <Circle key={r} cx={150} cy={150} r={r} fill="none" stroke={color} strokeWidth={14 + index * 3} opacity={.17 - index * .035} />)}</Svg></Animated.View>
     <Svg width="100%" height="100%" viewBox="0 0 300 300" style={StyleSheet.absoluteFill}><Defs><RadialGradient id="dial-shade"><Stop offset="0" stopColor={t.bg} stopOpacity={.95} /><Stop offset=".7" stopColor={t.bg} stopOpacity={.65} /><Stop offset="1" stopColor={t.bg} stopOpacity={0} /></RadialGradient></Defs><Circle cx={150} cy={150} r={117} fill="url(#dial-shade)" /></Svg>
-    <Animated.View testID="dial-orbit" style={[StyleSheet.absoluteFill, { opacity: running && !reduced ? 1 : .4 }, orbitStyle]}><Svg width="100%" height="100%" viewBox="0 0 300 300"><Defs><LinearGradient id="double-tail" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor={color} stopOpacity={.04} /><Stop offset="1" stopColor={accent} stopOpacity={1} /></LinearGradient></Defs>{[0, 180].map((angle, index) => <G key={angle} transform={`rotate(${angle - 90} 150 150)`}><Circle cx={150} cy={150} r={137} fill="none" stroke={color} strokeWidth={10} strokeDasharray={`${index ? 110 : 170} 861`} opacity={.2} strokeLinecap="round" /><Circle cx={150} cy={150} r={137} fill="none" stroke="url(#double-tail)" strokeWidth={3} strokeDasharray={`${index ? 110 : 170} 861`} strokeLinecap="round" /><Circle cx={287} cy={150} r={3.5} fill={accent} /></G>)}</Svg></Animated.View>
+    <Animated.View testID="dial-orbit" style={[StyleSheet.absoluteFill, orbitStyle]}><Svg width="100%" height="100%" viewBox="0 0 300 300"><Defs><LinearGradient id="double-tail" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor={color} stopOpacity={.04} /><Stop offset="1" stopColor={accent} stopOpacity={1} /></LinearGradient></Defs>{[0, 180].map((angle, index) => <G key={angle} transform={`rotate(${angle - 90} 150 150)`}><Circle cx={150} cy={150} r={137} fill="none" stroke={color} strokeWidth={10} strokeDasharray={`${index ? 110 : 170} 861`} opacity={.2} strokeLinecap="round" /><Circle cx={150} cy={150} r={137} fill="none" stroke="url(#double-tail)" strokeWidth={3} strokeDasharray={`${index ? 110 : 170} 861`} strokeLinecap="round" /><Circle cx={287} cy={150} r={3.5} fill={accent} /></G>)}</Svg></Animated.View>
   </View>;
 });
 
-function Progress({ progress, mode, running, resetFrom, animatedValue }: { progress: number; mode: MotionMode; running: boolean; resetFrom?: number; animatedValue?: SharedValue<number> }) {
+function Progress({ progress, mode, running, resetFrom, animatedValue, glow }: { progress: number; mode: MotionMode; running: boolean; resetFrom?: number; animatedValue?: SharedValue<number>; glow: SharedValue<number> }) {
   const color = motionProfile(mode).color;
   const { reduced, active } = useMotionPreferences(running || resetFrom !== undefined);
   const value = useSharedValue(progress), previousMode = useRef(mode), previousProgress = useRef(progress);
@@ -38,9 +39,10 @@ function Progress({ progress, mode, running, resetFrom, animatedValue }: { progr
   }, [progress, mode, reduced, active, value, resetFrom, animatedValue]);
   const props = useAnimatedProps(() => {
     const current = animatedValue ? animatedValue.value : value.value;
-    return { strokeDashoffset: circumference * (1 - current), opacity: current <= .00001 ? 0 : running ? 1 : .5 };
+    return { strokeDashoffset: circumference * (1 - current), opacity: current <= .00001 ? 0 : .5 + glow.value * .5 };
   });
-  return <Svg width="100%" height="100%" viewBox="0 0 300 300" style={StyleSheet.absoluteFill}><Circle cx={150} cy={150} r={137} fill="none" stroke={color} strokeWidth={1} opacity={.3} /><Circle cx={150} cy={150} r={122} fill="none" stroke={t.border} strokeWidth={10} /><G transform="rotate(-90 150 150)"><AnimatedCircle testID="dial-progress" animatedProps={props} cx={150} cy={150} r={122} fill="none" stroke={color} strokeWidth={10} strokeDasharray={`${circumference} ${circumference}`} strokeLinecap="round" /></G></Svg>;
+  const outlineProps = useAnimatedProps(() => ({ opacity: glow.value * .3 }));
+  return <Svg width="100%" height="100%" viewBox="0 0 300 300" style={StyleSheet.absoluteFill}><AnimatedCircle animatedProps={outlineProps} cx={150} cy={150} r={137} fill="none" stroke={color} strokeWidth={1} /><Circle cx={150} cy={150} r={122} fill="none" stroke={t.border} strokeWidth={10} /><G transform="rotate(-90 150 150)"><AnimatedCircle testID="dial-progress" animatedProps={props} cx={150} cy={150} r={122} fill="none" stroke={color} strokeWidth={10} strokeDasharray={`${circumference} ${circumference}`} strokeLinecap="round" /></G></Svg>;
 }
 
 function CountdownCue({ seconds, mode, running }: { seconds: number; mode: MotionMode; running: boolean }) {
@@ -62,15 +64,26 @@ export function Dial({ mode, remainingMs, durationMs, elapsedMs, running, captio
   const seconds = remainingMs == null ? -1 : Math.ceil(remainingMs / 1000);
   const progress = mode === 'stopwatch' ? (resetFrom !== undefined ? 0 : stopwatchRing(elapsedMs || 0)) : Math.max(0, Math.min(1, (remainingMs || 0) / Math.max(1, durationMs || 1)));
   const time = remainingMs == null ? elapsedMs || 0 : Math.ceil(countdown.displayMs / 1000) * 1000;
+  const countdownTime = formatCountdownParts(remainingMs || 0);
+  const glowing = running || resetFrom !== undefined;
+  const { active: animateGlow } = useMotionPreferences(true);
+  const glow = useSharedValue(0);
+  useEffect(() => {
+    glow.value = animateGlow ? withTiming(glowing ? 1 : 0, { duration: 350, easing: Easing.inOut(Easing.cubic) }) : glowing ? 1 : 0;
+    return () => cancelAnimation(glow);
+  }, [glowing, animateGlow, glow]);
   if (mode === 'countdown') return <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-    <Decoration mode={mode} running={running} />
-    <Progress progress={progress} mode={mode} running={running} animatedValue={countdown.ring} />
+    <Decoration mode={mode} running={running} glow={glow} />
+    <Progress progress={progress} mode={mode} running={running} glow={glow} animatedValue={countdown.ring} />
     <CountdownCue seconds={seconds} mode={mode} running={running} />
-    <Text testID="dial-time" accessibilityLabel={formatCountdown(time)} style={{ color: '#fff', fontFamily: t.mono, fontSize: size * .15, letterSpacing: -1, lineHeight: 58 }}>{formatCountdown(time)}</Text>
-    <View style={{ marginTop: 10, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 99, borderWidth: 1, borderColor: '#282a2f', backgroundColor: '#1a1b21' }}><Text style={{ color: '#ff4655', fontFamily: t.mono, fontSize: 12 }}>{caption || `剩余 ${Math.ceil(progress * 100)}%`}</Text></View>
+    <View style={{ alignItems: 'flex-end' }}>
+      <Text testID="dial-time" accessibilityLabel={`${countdownTime.time}.${countdownTime.fraction}`} style={{ color: '#fff', fontFamily: t.mono, fontSize: size * .15, letterSpacing: -1, lineHeight: 58 }}>{countdownTime.time}</Text>
+      <Text testID="countdown-milliseconds" accessible={false} style={{ color: '#ff7882', fontFamily: t.mono, fontSize: size * .06, lineHeight: 22, marginTop: -6, fontVariant: ['tabular-nums'] }}>.{countdownTime.fraction}</Text>
+    </View>
+    <View accessibilityLabel={!running && !caption ? statusLabel : undefined} style={{ marginTop: 10, minHeight: 26, paddingVertical: 4, justifyContent: 'center' }}>{!running && !caption ? <Ionicons name="pause" size={14} color="#ff4655" /> : <Text style={{ color: '#ff4655', fontFamily: t.mono, fontSize: 12 }}>{caption || `${Math.ceil(progress * 100)}%`}</Text>}</View>
   </View>;
   return <View style={{ width: size, height: size, marginVertical: 22, alignSelf: 'center', alignItems: 'center', justifyContent: 'center' }}>
-    <Decoration mode={mode} running={running} /><Progress progress={progress} mode={mode} running={running} resetFrom={resetFrom} animatedValue={mode === 'stopwatch' ? undefined : countdown.ring} /><CountdownCue seconds={seconds} mode={mode} running={running} />
+    <Decoration mode={mode} running={running} glow={glow} /><Progress progress={progress} mode={mode} running={running} glow={glow} resetFrom={resetFrom} animatedValue={mode === 'stopwatch' ? undefined : countdown.ring} /><CountdownCue seconds={seconds} mode={mode} running={running} />
     <View style={{ alignItems: 'center' }}>{topContent}{mode !== 'stopwatch' && <Text style={[styles.caption, { color }]}>{caption}</Text>}<View style={{ flexDirection: 'row', alignItems: 'baseline' }}><Text testID="dial-time" accessibilityLabel={formatDuration(time)} style={[styles.time, { fontSize: fraction ? size * .18 : size * .21 }]}>{formatDuration(time)}</Text>{fraction && <Text style={[styles.fraction, { color, fontSize: size * .095 }]}>.{String(Math.floor(time % 1000 / 10)).padStart(2, '0')}</Text>}</View>{mode === 'stopwatch' ? <Text style={styles.caption}>{caption}</Text> : !running && !!statusLabel && <Text style={styles.caption}>{statusLabel}</Text>}</View>
   </View>;
 }

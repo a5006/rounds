@@ -10,7 +10,7 @@ import { countdownRemaining, emptyCountdown, normalizeSeconds, pauseCountdown, r
 
 type Timer = { status: 'idle' | 'ready' | 'running' | 'paused' | 'complete'; durationMs: number; remainingMs: number; deadline: number };
 type Value = { timer: Timer; remainingMs: number; selectedSeconds: number; recent: number[]; keepAwake: boolean; ready: boolean; starting: boolean; notice: string | null;
-  select: (seconds: number) => void; start: () => Promise<void>; pause: () => void; resume: () => Promise<void>; stop: () => void; cancel: () => void; setKeepAwake: (value: boolean) => void };
+  select: (seconds: number) => void; deleteRecent: (seconds: number) => void; start: () => Promise<void>; pause: () => void; resume: () => Promise<void>; stop: () => void; cancel: () => void; setKeepAwake: (value: boolean) => void };
 const Context = createContext<Value | null>(null);
 const storageKey = 'round-pro-countdown:v1';
 export function CountdownProvider({ children }: { children: React.ReactNode }) {
@@ -24,14 +24,14 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { preferences.current = { muted: app.muted, vibration: app.settings.vibration, training: app.session.running }; }, [app.muted, app.settings.vibration, app.session.running]);
   const alertQueue = useRef(Promise.resolve()), saveQueue = useRef(Promise.resolve());
   const commit = useCallback((next: Timer) => { timerRef.current = next; setTimer(next); setRemainingMs(countdownRemaining(next, Date.now())); }, []);
-  const sync = useCallback(() => {
+  const sync = useCallback((catchUp = false) => {
     const current = timerRef.current, next = settleCountdown(current, Date.now()) as Timer;
     setRemainingMs(countdownRemaining(next, Date.now()));
     if (next !== current) {
       commit(next);
-      if (AppState.currentState === 'active' && !alerts.current) {
-        if (shouldRingCountdown(current, next, preferences.current.muted)) void previewAudio('bells', false, 1, !preferences.current.training).catch(() => { if (alive.current) setNotice('结束铃声播放失败，请检查设备声音设置。'); });
-        if (preferences.current.vibration) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      if (AppState.currentState === 'active') {
+        if (shouldRingCountdown(current, next, preferences.current.muted, { scheduled: alerts.current, catchUp })) void previewAudio('bells', false, 1, !preferences.current.training).catch(() => { if (alive.current) setNotice('结束铃声播放失败，请检查设备声音设置。'); });
+        if (preferences.current.vibration && !alerts.current) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }
     }
   }, [commit]);
@@ -55,7 +55,7 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
   }, [ready, timer, selectedSeconds, recent, keepAwake]);
   useEffect(() => {
     const tick = setInterval(() => { if (readyRef.current && timerRef.current.status === 'running') sync(); }, 100);
-    const state = AppState.addEventListener('change', value => { if (value === 'active' && readyRef.current) sync(); });
+    const state = AppState.addEventListener('change', value => { if (value === 'active' && readyRef.current) sync(true); });
     return () => { clearInterval(tick); state.remove(); };
   }, [sync]);
   useEffect(() => listenCountdownAlert(() => navigate('countdown')), [navigate]);
@@ -94,6 +94,7 @@ export function CountdownProvider({ children }: { children: React.ReactNode }) {
     } finally { if (alive.current && token === operation.current) { startingRef.current = false; setStarting(false); } }
   };
   return <Context.Provider value={{ timer, remainingMs, selectedSeconds, recent, keepAwake, ready, starting, notice,
+    deleteRecent: seconds => setRecent(previous => previous.filter(value => value !== seconds)),
     select: seconds => { if (timerRef.current.status === 'idle') setSelectedSeconds(normalizeSeconds(seconds)); }, start: () => begin(false), resume: () => begin(true),
     pause: () => commit(pauseCountdown(timerRef.current, Date.now()) as Timer),
     stop: () => { operation.current++; startingRef.current = false; setStarting(false); setNotice(null); commit(stopCountdown(timerRef.current) as Timer); },

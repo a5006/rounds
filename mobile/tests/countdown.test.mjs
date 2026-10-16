@@ -1,4 +1,5 @@
 import test from 'node:test';
+import * as countdown from '../src/core/countdown.mjs';
 import assert from 'node:assert/strict';
 import { countdownRemaining, emptyCountdown, formatCountdown, pauseCountdown, recentCountdownTimes, restoreCountdown, resumeCountdown, settleCountdown, startCountdown, stopCountdown, shouldRingCountdown } from '../src/core/countdown.mjs';
 
@@ -34,8 +35,16 @@ test('limits, zero-duration starts, rounding and recent selections', () => {
   assert.equal(formatCountdown(86399000), '23:59:59');
   assert.equal(formatCountdown(1001), '00:00:02');
   assert.equal(formatCountdown(-1), '00:00:00');
-  assert.deepEqual(recentCountdownTimes([30, 30, 0, NaN, 145, 60, 90, 120, 180, 240]), [30, 145, 60, 90, 120, 180]);
+  assert.deepEqual(recentCountdownTimes([30, 30, 0, NaN, 145, 60, 90, 120, 180, 240]), [30, 145, 60, 90]);
   assert.equal(resumeCountdown(emptyCountdown(), 1).status, 'idle');
+});
+test('recent countdowns retain at most four entries and an empty deleted history stays empty', () => {
+  assert.equal(recentCountdownTimes(null).length, 4);
+  const history = recentCountdownTimes([59, 145, 67, 623, 30, 25]);
+  assert.deepEqual(history, [59, 145, 67, 623]);
+  assert.deepEqual(recentCountdownTimes(history.filter(seconds => seconds !== 145)), [59, 67, 623]);
+  assert.deepEqual(recentCountdownTimes([]), []);
+  assert.deepEqual(recentCountdownTimes([10, ...history]), [10, 59, 145, 67]);
 });
 
 test('stop restores the original duration without returning to setup, survives reload and restarts fully', () => {
@@ -57,4 +66,19 @@ test('finish rings once only when sound is enabled; pause and stop never ring', 
   assert.equal(shouldRingCountdown(done, settleCountdown(done, 3000), false), false);
   assert.equal(shouldRingCountdown(running, stopCountdown(running), false), false);
   assert.equal(shouldRingCountdown(running, pauseCountdown(running, 1500), false), false);
+});
+test('a scheduled notification does not suppress the foreground completion bell', () => {
+  const running = startCountdown(1, 1000), done = settleCountdown(running, 2000);
+  assert.equal(shouldRingCountdown(running, done, false, { foreground: true, scheduled: true }), true);
+  assert.equal(shouldRingCountdown(running, done, true, { foreground: true, scheduled: true }), false);
+  assert.equal(shouldRingCountdown(running, done, false, { foreground: false, scheduled: true }), false);
+  assert.equal(shouldRingCountdown(running, done, false, { foreground: true, scheduled: true, catchUp: true }), false);
+  assert.equal(shouldRingCountdown(running, done, false, { foreground: true, scheduled: false, catchUp: true }), true);
+});
+test('countdown notifications leave foreground sound to the app and keep background bells', () => {
+  assert.equal(typeof countdown.countdownNotificationSound, 'function');
+  assert.equal(countdown.countdownNotificationSound(true, 'bells.wav', true), false);
+  assert.equal(countdown.countdownNotificationSound(true, 'bells.wav', false), true);
+  assert.equal(countdown.countdownNotificationSound(true, false, false), false);
+  assert.equal(countdown.countdownNotificationSound(false, 'default', true), true);
 });

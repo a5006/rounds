@@ -10,6 +10,7 @@ import { formatDuration } from '../core/mobile-core.mjs';
 import { previewAudio } from '../audio';
 import type { Settings } from '../types';
 import { useStopwatchReset } from '../useStopwatchReset';
+import { BreathingDot } from '../BreathingDot';
 
 const precise = (ms: number) => `${formatDuration(ms)}.${String(Math.floor(ms % 1000 / 10)).padStart(2, '0')}`;
 export function StopwatchScreen() {
@@ -19,9 +20,9 @@ export function StopwatchScreen() {
   const best = watch.laps.length ? Math.min(...watch.laps.map(lap => lap.ms)) : 0;
   const bestLap = watch.laps.find(lap => lap.ms === best);
   const average = watch.laps.length ? watch.laps.reduce((sum, lap) => sum + lap.ms, 0) / watch.laps.length : 0;
-  return <>{!focus && <Header title="STOPWATCH" audio />}<ScrollView contentContainerStyle={[s.content, focus && { flexGrow: 1, justifyContent: 'center' }]}>
-    <View style={s.between}><Label>高精度竞技模式 · 1/100 SEC</Label><Button title={focus ? '退出专注' : '专注模式'} secondary color={t.amber} onPress={() => setFocus(!focus)} style={{ minHeight: 42, paddingHorizontal: 14 }} /></View>
-    <Dial mode="stopwatch" running={watch.running} elapsedMs={reset.displayMs} resetFrom={reset.resetFrom} topContent={<View style={stopwatchStyles.lapBadge}><View style={stopwatchStyles.blueDot} /><Text style={stopwatchStyles.badgeLabel}>本圈用时</Text><Text style={stopwatchStyles.badgeTime}>{precise(Math.max(0, reset.displayMs - watch.lastLapMs))}</Text></View>} caption={<><Text style={{ color: t.muted }}>SPLIT-TIMER</Text><Text style={{ color: t.border }}>  ·  </Text><Text style={[s.mono, { color: t.amber, fontSize: 10 }]}>LAP #{String(watch.laps.length + 1).padStart(2, '0')}</Text></>} fraction />
+  return <>{!focus && <Header title="STOPWATCH" audio back={false} />}<ScrollView contentContainerStyle={[s.content, focus && { flexGrow: 1, justifyContent: 'center' }]}>
+    <View style={s.between}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}><BreathingDot color={t.amber} mode="stopwatch" /><Text style={{ color: t.muted, fontSize: 10, letterSpacing: .5, fontWeight: '600', flexShrink: 1 }}>PRECISION TIMING · 1/100 SEC</Text></View><Button title={focus ? '退出专注' : '专注模式'} secondary color={t.amber} onPress={() => setFocus(!focus)} style={{ minHeight: 42, paddingHorizontal: 14 }} /></View>
+    <Dial mode="stopwatch" running={watch.running} elapsedMs={reset.displayMs} resetFrom={reset.resetFrom} topContent={<View style={stopwatchStyles.lapBadge}><View style={stopwatchStyles.blueDot} /><Text style={stopwatchStyles.badgeLabel}>本圈用时</Text><Text style={stopwatchStyles.badgeTime}>{precise(Math.max(0, reset.displayMs - watch.lastLapMs))}</Text></View>} caption={<><Text style={[s.mono, { color: t.amber, fontSize: 10 }]}>LAP #{String(watch.laps.length + 1).padStart(2, '0')}</Text></>} fraction />
     {!focus && <View style={stopwatchStyles.stats}>
       <View style={stopwatchStyles.stat}><View style={stopwatchStyles.statHeading}><Text style={stopwatchStyles.statLabel}>最快单圈</Text><Ionicons name="flash" size={12} color={t.blue} /></View><Text numberOfLines={1} adjustsFontSizeToFit style={[stopwatchStyles.statValue, { color: t.blue }]}>{bestLap ? precise(best) : '—'}</Text><Text style={stopwatchStyles.statCaption}>{bestLap ? `圈次 ${String(bestLap.id).padStart(2, '0')}` : '等待分圈'}</Text></View>
       <View style={stopwatchStyles.stat}><View style={stopwatchStyles.statHeading}><Text style={stopwatchStyles.statLabel}>平均圈速</Text><Ionicons name="time-outline" size={12} color={t.amber} /></View><Text numberOfLines={1} adjustsFontSizeToFit style={[stopwatchStyles.statValue, { color: t.amber }]}>{watch.laps.length ? precise(average) : '—'}</Text><Text style={stopwatchStyles.statCaption}>{watch.laps.length ? '已记录单圈的平均时间' : '开始后触击分圈'}</Text></View>
